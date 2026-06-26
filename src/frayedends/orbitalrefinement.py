@@ -64,12 +64,13 @@ class OrbitalRefinement:
     dimensions = None
     impl = None
     converged = None  # indicates if the last call converged
+    use_hcb = None # indicate wether to use the HCB formulation 
 
     @property
     def orbitals(self, *args, **kwargs):
         return self.get_orbitals(*args, **kwargs)
 
-    def __init__(self, madworld: MadWorld, Vnuc: SavedFct3D | SavedFct2D, nuc_repulsion: float, **kwargs):
+    def __init__(self, madworld: MadWorld, Vnuc: SavedFct3D | SavedFct2D, nuc_repulsion: float, use_hcb: bool = False, **kwargs):
         # setup the numerical environment for orbital refinement.
         if madworld.dimensions == 3:
             self.dimensions = 3
@@ -79,6 +80,7 @@ class OrbitalRefinement:
             self.impl = OptInterface2D(madworld.impl)
         self._Vnuc = Vnuc
         self._nuclear_repulsion = nuc_repulsion
+        self.use_hcb = use_hcb
         self.override_numerical_parameters(**kwargs)
 
     def override_numerical_parameters(
@@ -125,11 +127,23 @@ class OrbitalRefinement:
     ):
         r"""
         this function performs the orbital refinement
+        two formulations are supported:
+        (1) standard spinful fermionic formulation (default)
+        (2) hardcore boson (HCB) formulation
         input:
-         - one body reduced density matrix (rdm1) and two body reduced density matrix (rdm2) as 2 and 4 dimensional numpy arrays, respectively
-           expects ordering of the form:
+         - one body reduced density matrix (rdm1) and two body reduced density matrix (rdm2):
+           * fermionic case:
+            rdm1: 2D numpy array
+            rdm2: 4D numpy array
+            expects ordering of the form:
               rdm1[i,j] = \sum_\sigma \langle a_{i,\sigma}^\dagger a_{j,\sigma} \rangle
               rdm2[i,j,k,l] = \sum_{\sigma,\tau} \langle a_{i,\sigma}^\dagger a_{j,\tau}^\dagger a_{l,\tau} a_{k,\sigma} \rangle
+           * HCB case:
+            rdm1: 2D numpy array
+            rdm2: 2D numpy array
+            ordering:
+              rdm1[i,j] = \langle b_i^\dagger b_j \rangle 
+              rdm2[i,j] = \langle b_i^\dagger b_i b_j^\dagger b_j \rangle
          - orbitals is either a list of SavedFct3D objects (if all orbitals are active) or a list/tuple of [frozen_core_orbs, active_orbs], where frozen_core_orbs and active_orbs are lists of SavedFct3D objects.
          - opt_thresh is the threshold for convergence of the orbital refinement (based on the change of the energy)
          - occ_thresh is the occupation threshold, if orbitals have occupation numbers < occ_thresh, they are skipped and not refined
@@ -153,9 +167,13 @@ class OrbitalRefinement:
 
         self.impl.give_potential_and_repulsion(self._Vnuc, self._nuclear_repulsion)
         self.impl.give_initial_orbitals(frozen_core_orbs, active_orbs)
-        self.impl.give_rdm_and_rotate_orbitals(rdm1, rdm2)
-        self.converged = self.impl.optimize_orbitals(opt_thresh, occ_thresh, maxiter, refine_core)
-        self.impl.rotate_orbitals_back()
+        if self.use_hcb:
+            self.impl.give_rdm_hcb(rdm1, rdm2)
+            self.converged = self.impl.optimize_orbitals(opt_thresh, occ_thresh, maxiter, refine_core, self.use_hcb)
+        else:
+            self.impl.give_rdm_and_rotate_orbitals(rdm1, rdm2)
+            self.converged = self.impl.optimize_orbitals(opt_thresh, occ_thresh, maxiter, refine_core, self.use_hcb)
+            self.impl.rotate_orbitals_back()
 
         self._fr_core_orbitals, self._active_orbitals = self.impl.get_orbitals()
         return self._fr_core_orbitals, self._active_orbitals, self.converged
