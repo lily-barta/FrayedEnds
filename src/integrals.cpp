@@ -24,10 +24,19 @@ void Integrals<NDIM>::update_as_integral_combinations(const std::vector<Function
     orbs_kl.clear();
     coul_orbs_mn.clear();
     
-    for (int k = 0; k < orbitals.size(); k++) {
-        std::vector<Function<double, NDIM>> kl = orbitals[k] * orbitals;
-        orbs_kl.insert(std::end(orbs_kl), std::begin(kl), std::end(kl));
+    // for (int k = 0; k < orbitals.size(); k++) {
+    //     std::vector<Function<double, NDIM>> kl = orbitals[k] * orbitals;
+    //     orbs_kl.insert(std::end(orbs_kl), std::begin(kl), std::end(kl));
+    // }
+
+    // phi_k * phi_l = phi_l * phi_k
+    // only need N(N+1)/2 pairs instead of N^2
+    for (int k = 0; k < orbitals.size(); ++k) {
+        for (int l = k; l < orbitals.size(); ++l) {
+            orbs_kl.push_back(orbitals[k] * orbitals[l]);
+        }
     }
+
     orbs_kl = truncate(orbs_kl, num_params.truncation_tol);
     coul_orbs_mn = apply(*(madness_process.world), *coul_op_parallel, orbs_kl);
     coul_orbs_mn = truncate(coul_orbs_mn, num_params.truncation_tol);
@@ -247,13 +256,24 @@ Tensor<double> Integrals<NDIM>::compute_two_body_integrals(const std::vector<Fun
     madness::Tensor<double> twob_ints = madness::Tensor<double>(orbitals.size(), orbitals.size(), orbitals.size(), orbitals.size());
     madness::Tensor<double> Inner_prods = matrix_inner(*(madness_process.world), orbs_kl, coul_orbs_mn, false); // Inner_prods_{(kl),(mn)} = (kl|mn)
 
+    int kl = 0;
     for (int k = 0; k < orbitals.size(); k++) {
-        for (int l = 0; l < orbitals.size(); l++) {
+        for (int l = k; l < orbitals.size(); l++) {
+            int mn = 0;
             for (int m = 0; m < orbitals.size(); m++) {
-                for (int n = 0; n < orbitals.size(); n++) {
-                    twob_ints(k, m, l, n) = Inner_prods(k * orbitals.size() + l, m * orbitals.size() + n); // unpacking into 4 dim tensor and reordering to physicist's notation (kl|mn) -> <km|ln>
+                for (int n = m; n < orbitals.size(); n++) {
+                    // (kl|mn) -> <km|ln>
+                    twob_ints(k, m, l, n) = Inner_prods(kl, mn); // unpacking into 4 dim tensor and reordering to physicist's notation (kl|mn) -> <km|ln>
+                    // (kl|mn) = (lk|mn) -> <lm|kn>
+                    twob_ints(l, m, k, n) = twob_ints(k, m, l, n);
+                    // (kl|mn) = (kl|nm) -> <kn|lm>
+                    twob_ints(k, n, l, m) = twob_ints(k, m, l, n);
+                    // (kl|mn) = (lk|nm) -> <ln|km>
+                    twob_ints(l, n, k, m) = twob_ints(k, m, l, n);
+                    mn++;
                 }
             }
+            kl++;
         }
     }
     return twob_ints;
@@ -354,9 +374,13 @@ std::array<Tensor<double>, 2> Integrals<NDIM>::compute_core_as_2e_integrals_ener
     Tensor<double> Inner_prods_akal = matrix_inner(*(madness_process.world), orbs_aa, coul_orbs_mn, false);
 
     for (int a = 0; a < core_orbitals.size(); a++) {
+        int kl = 0;
         for (int k = 0; k < active_orbitals.size(); k++) {
-            for (int l = 0; l < active_orbitals.size(); l++) {
-                core_as_integrals_two_body_akal(a,k,l) = Inner_prods_akal(a, k * active_orbitals.size() + l);
+            for (int l = k; l < active_orbitals.size(); l++) {
+                // <ak|al> = <al|ak>
+                core_as_integrals_two_body_akal(a,k,l) = Inner_prods_akal(a, kl);
+                core_as_integrals_two_body_akal(a,l,k) = Inner_prods_akal(a, kl);
+                kl++;
             }
         }
     }
@@ -373,8 +397,10 @@ std::array<Tensor<double>, 2> Integrals<NDIM>::compute_core_as_2e_integrals_ener
         // <ak|la> = <ka|al>
         Tensor<double> Inner_prods_akla = matrix_inner(*(madness_process.world), orbs_ak, coul_orbs_ak, false);
         for (int k = 0; k < active_orbitals.size(); k++) {
-            for (int l = 0; l < active_orbitals.size(); l++) {
+            for (int l = k; l < active_orbitals.size(); l++) {
+                // <ak|la> = <al|ka>
                 core_as_integrals_two_body_akla(a, k, l) = Inner_prods_akla(l, k);
+                core_as_integrals_two_body_akla(a, l, k) = Inner_prods_akla(l, k);
             }
         }
     }
@@ -410,9 +436,13 @@ std::array<Tensor<double>, 5> Integrals<NDIM>::compute_core_as_2e_integrals_as_r
     //akal
     Tensor<double> Inner_prods_akal = matrix_inner(*(madness_process.world), orbs_aa, coul_orbs_mn, false);
     for (int a = 0; a < core_orbitals.size(); a++) {
+        int kl = 0;
         for (int k = 0; k < active_orbitals.size(); k++) {
-            for (int l = 0; l < active_orbitals.size(); l++) {
-                core_as_integrals_two_body_akal(a,k,l) = Inner_prods_akal(a, k * active_orbitals.size() + l);
+            for (int l = k; l < active_orbitals.size(); l++) {
+                // <ak|al> = <al|ak>
+                core_as_integrals_two_body_akal(a,k,l) = Inner_prods_akal(a, kl);
+                core_as_integrals_two_body_akal(a,l,k) = Inner_prods_akal(a, kl);
+                kl++;
             }
         }
     }
@@ -427,17 +457,22 @@ std::array<Tensor<double>, 5> Integrals<NDIM>::compute_core_as_2e_integrals_as_r
         // <ak|la> = <ka|al>
         Tensor<double> Inner_prods_akla = matrix_inner(*(madness_process.world), orbs_ak, coul_orbs_ak, false);
         for (int k = 0; k < active_orbitals.size(); k++) {
-            for (int l = 0; l < active_orbitals.size(); l++) {
+            for (int l = k; l < active_orbitals.size(); l++) {
+                // <ak|la> = <al|ka>
                 core_as_integrals_two_body_akla(a, k, l) = Inner_prods_akla(l, k);
+                core_as_integrals_two_body_akla(a, l, k) = Inner_prods_akla(l, k);
             }
         }
 
-        // <ak|ln>
+        // <al|kn> = (ak|ln)
         Tensor<double> Inner_prods_akln = matrix_inner(*(madness_process.world), orbs_ak, coul_orbs_mn, false);
         for (int k = 0; k < active_orbitals.size(); k++) {
+            int ln = 0;
             for (int l = 0; l < active_orbitals.size(); l++) {
-                for (int n = 0; n < active_orbitals.size(); n++) {
-                    core_as_integrals_two_body_akln(a, l, k, n) = Inner_prods_akln(k, l * active_orbitals.size() + n);
+                for (int n = l; n < active_orbitals.size(); n++) {
+                    core_as_integrals_two_body_akln(a, l, k, n) = Inner_prods_akln(k, ln);
+                    core_as_integrals_two_body_akln(a, n, k, l) = Inner_prods_akln(k, ln);
+                    ln++;
                 }
             }
         }
@@ -451,12 +486,14 @@ std::array<Tensor<double>, 5> Integrals<NDIM>::compute_core_as_2e_integrals_as_r
         }
 
         // <ba|ak>
-        for (int b = 0; b < core_orbitals.size(); b++) {
+        for (int b = a; b < core_orbitals.size(); b++) {
             std::vector<Function<double, NDIM>> ba;
             ba.push_back(core_orbitals[b] * core_orbitals[a]);
             madness::Tensor<double> Inner_prods_baak = matrix_inner(*(madness_process.world), ba, coul_orbs_ak, false);
             for (int k = 0; k < active_orbitals.size(); k++) {
+                // <ba|ak> = <aa|bk>
                 core_as_integrals_two_body_baak(a,b,k) = Inner_prods_baak(0, k);
+                core_as_integrals_two_body_baak(b,a,k) = Inner_prods_baak(0, k);
             }
         }
     }

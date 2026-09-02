@@ -185,6 +185,10 @@ nb::class_<Integrals_open_shell<2>>(m, "Integrals_open_shell_2D")
              &Optimization<3>::calculate_lagrange_multiplier_element_as_as)
         .def("calculate_lagrange_multiplier_element_as_core",
              &Optimization<3>::calculate_lagrange_multiplier_element_as_core)
+        .def("calculate_lagrange_multiplier_hcb_element_as_as",
+             &Optimization<3>::calculate_lagrange_multiplier_element_as_as)
+        .def("calculate_lagrange_multiplier_hcb_element_as_core",
+             &Optimization<3>::calculate_lagrange_multiplier_element_as_core)
         .def("optimize_orbitals", &Optimization<3>::optimize_orbitals)
         .def("get_all_active_orbital_updates", &Optimization<3>::get_all_active_orbital_updates)
         .def("get_all_active_orbital_updates_hcb", &Optimization<3>::get_all_active_orbital_updates_hcb)
@@ -211,6 +215,10 @@ nb::class_<Integrals_open_shell<2>>(m, "Integrals_open_shell_2D")
              &Optimization<2>::calculate_lagrange_multiplier_element_as_as)
         .def("calculate_lagrange_multiplier_element_as_core",
              &Optimization<2>::calculate_lagrange_multiplier_element_as_core)
+        .def("calculate_lagrange_multiplier_element_as_as",
+             &Optimization<2>::calculate_lagrange_multiplier_hcb_element_as_as)
+        .def("calculate_lagrange_multiplier_element_as_core",
+             &Optimization<2>::calculate_lagrange_multiplier_hcb_element_as_core)
         .def("optimize_orbitals", &Optimization<2>::optimize_orbitals)
         .def("get_all_active_orbital_updates", &Optimization<2>::get_all_active_orbital_updates)
         .def("get_all_active_orbital_updates_hcb", &Optimization<2>::get_all_active_orbital_updates_hcb)

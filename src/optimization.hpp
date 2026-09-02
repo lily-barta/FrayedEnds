@@ -61,7 +61,9 @@ template <std::size_t NDIM> class Optimization {
     void calculate_lagrange_multiplier();
     void calculate_lagrange_multiplier_hcb();
     double calculate_lagrange_multiplier_element_as_as(int z, int i);
+    double calculate_lagrange_multiplier_hcb_element_as_as(int z, int i);
     double calculate_lagrange_multiplier_element_as_core(int z, int i);
+    double calculate_lagrange_multiplier_hcb_element_as_core(int z, int i);
     double calculate_lagrange_multiplier_element_core_core(int z, int c); // Core refinement
     double calculate_lagrange_multiplier_element_core_as(int z, int c); // Core refinement
     bool optimize_orbitals(double optimization_thresh, double NO_occupation_thresh, int maxiter, bool refine_c, bool use_hcb);
