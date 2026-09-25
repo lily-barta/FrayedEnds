@@ -416,8 +416,8 @@ std::array<Tensor<double>, 2> Integrals<NDIM>::compute_core_as_2e_integrals_ener
     }
     auto t3 = std::chrono::high_resolution_clock::now();
 
-    std::cout << "akal: " << std::chrono::duration<double>(t2 - t1).count() << " seconds" << std::endl;
-    std::cout << "akla: " << std::chrono::duration<double>(t3 - t2).count() << " seconds" << std::endl;
+    // std::cout << "akal: " << std::chrono::duration<double>(t2 - t1).count() << " seconds" << std::endl;
+    // std::cout << "akla: " << std::chrono::duration<double>(t3 - t2).count() << " seconds" << std::endl;
 
     return std::array<Tensor<double>, 2>{core_as_integrals_two_body_akal, core_as_integrals_two_body_akla};
 
